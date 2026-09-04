@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART HT & DM - Data Processor</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- SheetJS untuk membaca Excel secara lokal -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- Phosphor Icons untuk ikon premium -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #e0e5ec;
+            color: #475569;
+        }
+        
+        /* Custom Scrollbar bergaya Neumorphism */
+        .table-container::-webkit-scrollbar {
+            height: 12px;
+            width: 12px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #e0e5ec;
+            border-radius: 10px;
+            box-shadow: inset 3px 3px 6px #a3b1c6, inset -3px -3px 6px #ffffff;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #a3b1c6;
+            border-radius: 10px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #8a96a8;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+
+    <!-- Top Navigation Bar Neumorphism -->
+    <nav class="py-4 px-6 md:px-8 sticky top-0 z-50 bg-[#e0e5ec] shadow-[5px_5px_10px_#a3b1c6,-5px_-5px_10px_#ffffff]">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-[#e0e5ec] rounded-lg shadow-[4px_4px_8px_#a3b1c6,-4px_-4px_8px_#ffffff]">
+                    <i class="ph-fill ph-file-xls text-2xl text-slate-500"></i>
+                </div>
+                <span class="font-extrabold text-xl tracking-tight text-slate-600">DataProcessor Pro</span>
+            </div>
+            <div class="text-sm font-bold text-slate-500 hidden sm:block px-4 py-2 bg-[#e0e5ec] rounded-full shadow-[inset_3px_3px_6px_#a3b1c6,inset_-3px_-3px_6px_#ffffff]">
+                Excel Filtering Tool
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow p-4 md:p-8 w-full max-w-7xl mx-auto space-y-8 relative z-10">
+        
+        <!-- Header Section -->
+        <header class="text-center space-y-4 mt-6 mb-10 relative">
+            <h1 class="text-5xl md:text-6xl font-extrabold text-slate-500 tracking-tight uppercase drop-shadow-[2px_4px_6px_rgba(163,177,198,0.5)]">
+                SMART HT & DM
+            </h1>
+            <div class="w-32 h-1.5 bg-[#e0e5ec] mx-auto rounded-full mt-6 shadow-[inset_2px_2px_4px_#a3b1c6,inset_-2px_-2px_4px_#ffffff]"></div>
+        </header>
+
+        <!-- Upload Zone -->
+        <div class="max-w-2xl mx-auto">
+            <!-- Kartu dengan efek cekung (inset shadow) Neumorphism Light Grey -->
+            <div class="bg-[#e0e5ec] p-12 rounded-[2.5rem] shadow-[inset_12px_12px_24px_#a3b1c6,inset_-12px_-12px_24px_#ffffff] text-center relative transition-all duration-300 group overflow-hidden" id="drop-zone">
+                <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                
+                <div class="space-y-8 pointer-events-none flex flex-col items-center relative z-20">
+                    <!-- Ikon melayang dengan efek timbul -->
+                    <div class="w-24 h-24 bg-[#e0e5ec] shadow-[8px_8px_16px_#a3b1c6,-8px_-8px_16px_#ffffff] rounded-full flex items-center justify-center group-hover:scale-105 transition-transform duration-500 text-slate-500">
+                        <i class="ph ph-cloud-arrow-up text-5xl"></i>
+                    </div>
+                    
+                    <!-- Tombol Timbul (Convex) yang menjadi Cekung (Concave) saat di-hover/aktif -->
+                    <button class="px-8 py-3.5 bg-[#e0e5ec] text-slate-600 rounded-2xl font-bold shadow-[6px_6px_12px_#a3b1c6,-6px_-6px_12px_#ffffff] group-hover:shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] transition-all duration-300 pointer-events-auto flex items-center gap-2">
+                        <i class="ph-bold ph-file-xls text-xl"></i> Pilih File Excel
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Error / Info Messages -->
+            <div id="message-box" class="hidden mt-6 p-4 rounded-xl text-sm font-bold flex items-center gap-3 bg-[#e0e5ec] shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] text-slate-600"></div>
+        </div>
+
+        <!-- Results Section (Hidden by default) -->
+        <div id="results-section" class="hidden space-y-12 pb-12 animate-fade-in mt-12">
+            
+            <!-- Actions Toolbar -->
+            <div class="flex flex-col sm:flex-row justify-between items-center bg-[#e0e5ec] p-5 rounded-2xl shadow-[8px_8px_16px_#a3b1c6,-8px_-8px_16px_#ffffff] gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 bg-[#e0e5ec] text-emerald-500 rounded-xl shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff]">
+                        <i class="ph-fill ph-check-circle text-3xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-extrabold text-slate-700 leading-tight">Pemrosesan Selesai</h2>
+                        <p class="text-sm text-slate-500 font-semibold" id="file-name-display">file.xlsx</p>
+                    </div>
+                </div>
+                <button id="reset-btn" class="w-full sm:w-auto px-6 py-3 bg-[#e0e5ec] text-slate-600 rounded-xl font-bold shadow-[6px_6px_12px_#a3b1c6,-6px_-6px_12px_#ffffff] hover:shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] transition-all flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-arrow-counter-clockwise"></i> Proses File Baru
+                </button>
+            </div>
+
+            <!-- Table 1: DM Category -->
+            <div class="space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-4 pb-2">
+                    <div class="flex items-center gap-4">
+                        <div class="w-3 h-8 rounded-full bg-[#e0e5ec] shadow-[inset_2px_2px_4px_#a3b1c6,inset_-2px_-2px_4px_#ffffff]"></div>
+                        <h3 class="text-2xl font-black text-slate-600 tracking-tight">DM Terkendali</h3>
+                        <!-- Tombol Salin Neumorphism -->
+                        <button onclick="copyTableData('DM', this)" class="ml-2 px-5 py-2.5 bg-[#e0e5ec] text-slate-600 text-sm font-bold rounded-xl transition-all flex items-center gap-2 shadow-[4px_4px_8px_#a3b1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_3px_3px_6px_#a3b1c6,inset_-3px_-3px_6px_#ffffff] cursor-pointer">
+                            <i class="ph-bold ph-copy text-lg"></i> <span class="btn-text">Salin Isi</span>
+                        </button>
+                    </div>
+                    <span class="bg-[#e0e5ec] text-slate-500 text-sm font-bold px-4 py-2 rounded-xl shadow-[inset_3px_3px_6px_#a3b1c6,inset_-3px_-3px_6px_#ffffff]" id="count-dm">0 Baris</span>
+                </div>
+                
+                <div class="bg-[#e0e5ec] rounded-3xl p-3 shadow-[8px_8px_16px_#a3b1c6,-8px_-8px_16px_#ffffff]">
+                    <div class="bg-[#e0e5ec] rounded-2xl shadow-[inset_6px_6px_12px_#a3b1c6,inset_-6px_-6px_12px_#ffffff] overflow-hidden relative">
+                        <div class="overflow-x-auto table-container max-h-[400px]">
+                            <table class="w-full text-left border-collapse min-w-max">
+                                <thead class="bg-[#e0e5ec] sticky top-0 z-10 shadow-[0_4px_6px_-1px_#a3b1c6]" id="table-head-dm">
+                                    <!-- Headers will be generated here -->
+                                </thead>
+                                <tbody class="divide-y divide-[#a3b1c6]/40" id="table-body-dm">
+                                    <!-- Rows will be generated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="empty-state-dm" class="hidden absolute inset-0 bg-[#e0e5ec]/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-2xl">
+                            <div class="p-4 rounded-full shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] mb-3">
+                                <i class="ph-bold ph-magnifying-glass text-4xl text-slate-400"></i>
+                            </div>
+                            <p class="text-slate-500 font-bold text-lg">Tidak ada data DM</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table 2: HT Category -->
+            <div class="space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-4 pb-2">
+                    <div class="flex items-center gap-4">
+                        <div class="w-3 h-8 rounded-full bg-[#e0e5ec] shadow-[inset_2px_2px_4px_#a3b1c6,inset_-2px_-2px_4px_#ffffff]"></div>
+                        <h3 class="text-2xl font-black text-slate-600 tracking-tight">HT Terkendali</h3>
+                        <!-- Tombol Salin Neumorphism -->
+                        <button onclick="copyTableData('HT', this)" class="ml-2 px-5 py-2.5 bg-[#e0e5ec] text-slate-600 text-sm font-bold rounded-xl transition-all flex items-center gap-2 shadow-[4px_4px_8px_#a3b1c6,-4px_-4px_8px_#ffffff] hover:shadow-[inset_3px_3px_6px_#a3b1c6,inset_-3px_-3px_6px_#ffffff] cursor-pointer">
+                            <i class="ph-bold ph-copy text-lg"></i> <span class="btn-text">Salin Isi</span>
+                        </button>
+                    </div>
+                    <span class="bg-[#e0e5ec] text-slate-500 text-sm font-bold px-4 py-2 rounded-xl shadow-[inset_3px_3px_6px_#a3b1c6,inset_-3px_-3px_6px_#ffffff]" id="count-ht">0 Baris</span>
+                </div>
+                
+                <div class="bg-[#e0e5ec] rounded-3xl p-3 shadow-[8px_8px_16px_#a3b1c6,-8px_-8px_16px_#ffffff]">
+                    <div class="bg-[#e0e5ec] rounded-2xl shadow-[inset_6px_6px_12px_#a3b1c6,inset_-6px_-6px_12px_#ffffff] overflow-hidden relative">
+                        <div class="overflow-x-auto table-container max-h-[400px]">
+                            <table class="w-full text-left border-collapse min-w-max">
+                                <thead class="bg-[#e0e5ec] sticky top-0 z-10 shadow-[0_4px_6px_-1px_#a3b1c6]" id="table-head-ht">
+                                    <!-- Headers will be generated here -->
+                                </thead>
+                                <tbody class="divide-y divide-[#a3b1c6]/40" id="table-body-ht">
+                                    <!-- Rows will be generated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="empty-state-ht" class="hidden absolute inset-0 bg-[#e0e5ec]/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-2xl">
+                            <div class="p-4 rounded-full shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] mb-3">
+                                <i class="ph-bold ph-magnifying-glass text-4xl text-slate-400"></i>
+                            </div>
+                            <p class="text-slate-500 font-bold text-lg">Tidak ada data HT</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto py-8 relative z-10">
+        <div class="max-w-7xl mx-auto px-6 text-center text-sm text-slate-500 font-bold">
+            &copy; 2026 DataProcessor Pro. Semua proses dilakukan secara lokal.
+        </div>
+    </footer>
+
+    <script>
+        // State management
+        let globalProcessedData = {
+            DM: { rows: [], columns: [] },
+            HT: { rows: [], columns: [] }
+        };
+
+        // UI Elements
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-upload');
+        const messageBox = document.getElementById('message-box');
+        const resultsSection = document.getElementById('results-section');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Column Configurations
+        // Kolom A = 0, B = 1, C = 2, dst.
+        const dmColumns = [
+            { header: "NIK", index: 2 },                // C
+            { header: "Pasien Terdiagnosa", index: 4 }, // E
+            { header: "Januari", index: 8 },            // I
+            { header: "Februari", index: 15 },          // P
+            { header: "Maret", index: 22 },             // W
+            { header: "April", index: 29 },             // AD
+            { header: "Mei", index: 36 },               // AK
+            { header: "Juni", index: 43 },              // AR
+            { header: "Juli", index: 50 },              // AY
+            { header: "Agustus", index: 57 },           // BF
+            { header: "September", index: 64 },         // BM
+            { header: "Oktober", index: 71 },           // BT
+            { header: "November", index: 78 },          // CA
+            { header: "Desember", index: 85 }           // CH
+        ];
+
+        const htColumns = [
+            { header: "Nama", index: 1 },               // B
+            { header: "NIK", index: 2 },                // C
+            { header: "Pasien Terdiagnosa", index: 4 }, // E
+            { header: "Januari (L)", index: 11 },       // L
+            { header: "Januari (M)", index: 12 },       // M
+            { header: "Februari (S)", index: 18 },      // S
+            { header: "Februari (T)", index: 19 },      // T
+            { header: "Maret (Z)", index: 25 },         // Z
+            { header: "Maret (AA)", index: 26 },        // AA
+            { header: "April (AG)", index: 32 },        // AG
+            { header: "April (AH)", index: 33 },        // AH
+            { header: "Mei (AN)", index: 38 },          // AN
+            { header: "Mei (AO)", index: 39 },          // AO
+            { header: "Juni (AU)", index: 46 },         // AU
+            { header: "Juni (AV)", index: 47 },         // AV
+            { header: "Juli (BB)", index: 53 },         // BB
+            { header: "Juli (BC)", index: 54 },         // BC
+            { header: "Agustus (BI)", index: 60 },      // BI
+            { header: "Agustus (BJ)", index: 61 },      // BJ
+            { header: "September (BP)", index: 67 },    // BP
+            { header: "September (BQ)", index: 68 },    // BQ
+            { header: "Oktober (BW)", index: 74 },      // BW
+            { header: "Oktober (BX)", index: 75 },      // BX
+            { header: "November (CD)", index: 81 },     // CD
+            { header: "November (CE)", index: 82 },     // CE
+            { header: "Desember (CK)", index: 88 },     // CK
+            { header: "Desember (CL)", index: 89 }      // CL
+        ];
+
+        // UI Drag & Drop effects
+        ['dragenter', 'dragover'].forEach(eventName => {
+            fileInput.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('shadow-[inset_18px_18px_36px_#a3b1c6,inset_-18px_-18px_36px_#ffffff]');
+                dropZone.classList.remove('shadow-[inset_12px_12px_24px_#a3b1c6,inset_-12px_-12px_24px_#ffffff]');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            fileInput.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('shadow-[inset_18px_18px_36px_#a3b1c6,inset_-18px_-18px_36px_#ffffff]');
+                dropZone.classList.add('shadow-[inset_12px_12px_24px_#a3b1c6,inset_-12px_-12px_24px_#ffffff]');
+            });
+        });
+
+        // Handle file selection
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            processFile(file);
+        });
+
+        // Reset App
+        resetBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            resultsSection.classList.add('hidden');
+            hideMessage();
+            globalProcessedData = { DM: { rows: [], columns: [] }, HT: { rows: [], columns: [] } };
+        });
+
+        function processFile(file) {
+            hideMessage();
+            resultsSection.classList.add('hidden');
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
+                    
+                    if (jsonData.length < 10) {
+                        throw new Error("File terlalu pendek. Aplikasi membutuhkan data minimal sampai baris 10.");
+                    }
+
+                    extractData(jsonData);
+                    fileNameDisplay.textContent = file.name;
+                    resultsSection.classList.remove('hidden');
+                    
+                } catch (error) {
+                    console.error(error);
+                    showMessage(`Gagal memproses file: ${error.message}`, 'error', 'ph-warning');
+                }
+            };
+            
+            reader.onerror = function() {
+                showMessage("Terjadi kesalahan saat membaca file.", 'error', 'ph-warning');
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function extractData(rows) {
+            let dmRows = [];
+            let htRows = [];
+            const START_ROW_INDEX = 9; // Baris 10 di Excel (0-indexed)
+            const TARGET_COL_INDEX = 7; // Kolom H di Excel (0-indexed)
+
+            for (let i = START_ROW_INDEX; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length <= TARGET_COL_INDEX) continue;
+
+                const cellH = row[TARGET_COL_INDEX];
+                
+                if (typeof cellH === 'string') {
+                    const textH = cellH.toUpperCase();
+                    if (textH.includes("DM")) {
+                        dmRows.push({ data: row, originalIndex: i + 1 });
+                    }
+                    if (textH.includes("HT")) {
+                        htRows.push({ data: row, originalIndex: i + 1 });
+                    }
+                }
+            }
+
+            globalProcessedData.DM = { rows: dmRows, columns: dmColumns };
+            globalProcessedData.HT = { rows: htRows, columns: htColumns };
+
+            renderTable(
+                dmRows, dmColumns, 
+                document.getElementById('table-head-dm'),
+                document.getElementById('table-body-dm'),
+                document.getElementById('empty-state-dm'),
+                document.getElementById('count-dm'),
+                'DM'
+            );
+
+            renderTable(
+                htRows, htColumns, 
+                document.getElementById('table-head-ht'),
+                document.getElementById('table-body-ht'),
+                document.getElementById('empty-state-ht'),
+                document.getElementById('count-ht'),
+                'HT'
+            );
+        }
+
+        function renderTable(rows, columnsMap, headEl, bodyEl, emptyEl, countEl, type) {
+            countEl.textContent = `${rows.length} Baris`;
+            
+            if (rows.length === 0) {
+                headEl.innerHTML = '';
+                bodyEl.innerHTML = '';
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+            
+            let theadHTML = `<tr>
+                <th class="px-5 py-4 text-xs font-black text-slate-500 uppercase tracking-wider bg-[#e0e5ec] sticky left-0 z-20 shadow-[2px_0_5px_-2px_#a3b1c6]">Baris</th>`;
+            
+            columnsMap.forEach(col => {
+                theadHTML += `<th class="px-5 py-4 text-xs font-black text-slate-500 uppercase tracking-wider bg-[#e0e5ec] whitespace-nowrap">${col.header}</th>`;
+            });
+            theadHTML += '</tr>';
+            headEl.innerHTML = theadHTML;
+
+            let tbodyHTML = '';
+            rows.forEach((item) => {
+                const row = item.data;
+                const originalRowNumber = item.originalIndex;
+                
+                tbodyHTML += `<tr class="hover:bg-[#d6dbe0] transition-colors duration-200">`;
+                tbodyHTML += `<td class="px-5 py-3 text-xs text-slate-400 font-bold whitespace-nowrap bg-[#e0e5ec] sticky left-0 z-10 shadow-[2px_0_5px_-2px_#a3b1c6]">#${originalRowNumber}</td>`;
+                
+                columnsMap.forEach((col, colIdx) => {
+                    let cellValue = row[col.index];
+                    
+                    if (cellValue === undefined || cellValue === null || cellValue === '') {
+                        cellValue = '-';
+                    } else if (type === 'DM' && typeof cellValue === 'string') {
+                        // Hapus mg/dL pada tabel DM
+                        if(col.header !== "NIK" && col.header !== "Pasien Terdiagnosa") {
+                            cellValue = cellValue.replace(/mg\/dl/gi, '').trim();
+                        }
+                    }
+                    
+                    // Highlight untuk kolom pertama/kedua (Nama/NIK)
+                    if (colIdx === 0 || colIdx === 1) {
+                        tbodyHTML += `<td class="px-5 py-3 text-sm font-extrabold text-slate-600 whitespace-nowrap">${cellValue}</td>`;
+                    } else {
+                        tbodyHTML += `<td class="px-5 py-3 text-sm text-slate-500 font-medium whitespace-nowrap">${cellValue}</td>`;
+                    }
+                });
+                tbodyHTML += '</tr>';
+            });
+            bodyEl.innerHTML = tbodyHTML;
+        }
+
+        // Fungsi Salin Data (Tanpa Header + Sisip 2 Kolom Kosong)
+        function copyTableData(type, btnElement) {
+            const data = globalProcessedData[type];
+            if (!data || data.rows.length === 0) {
+                showMessage(`Tidak ada data ${type} untuk disalin.`, 'warning', 'ph-warning');
+                return;
+            }
+
+            let tsvContent = "";
+
+            data.rows.forEach(item => {
+                let rowData = [];
+                data.columns.forEach((col) => {
+                    let cellValue = item.data[col.index];
+                    
+                    if (cellValue === undefined || cellValue === null) {
+                        cellValue = "";
+                    } else if (type === 'DM' && typeof cellValue === 'string') {
+                        if(col.header !== "NIK" && col.header !== "Pasien Terdiagnosa") {
+                            cellValue = cellValue.replace(/mg\/dl/gi, '').trim();
+                        }
+                    }
+
+                    rowData.push(cellValue);
+                    
+                    // Sisipkan 2 kolom kosong setelah "Pasien Terdiagnosa" (sebelum Januari)
+                    if (col.header === 'Pasien Terdiagnosa') {
+                        rowData.push(""); 
+                        rowData.push(""); 
+                    }
+                });
+                tsvContent += rowData.join("\t") + "\n";
+            });
+
+            const textarea = document.createElement('textarea');
+            textarea.value = tsvContent;
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                
+                // Efek Animasi Tombol Neumorphism saat sukses tersalin
+                if (btnElement) {
+                    const icon = btnElement.querySelector('i');
+                    const text = btnElement.querySelector('.btn-text');
+                    const originalIcon = icon.className;
+                    const originalText = text.innerText;
+
+                    icon.className = 'ph-bold ph-check-circle text-lg text-emerald-500';
+                    text.innerText = 'Tersalin!';
+                    btnElement.classList.remove('shadow-[4px_4px_8px_#a3b1c6,-4px_-4px_8px_#ffffff]');
+                    btnElement.classList.add('shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff]', 'text-emerald-600');
+
+                    setTimeout(() => {
+                        icon.className = originalIcon;
+                        text.innerText = originalText;
+                        btnElement.classList.add('shadow-[4px_4px_8px_#a3b1c6,-4px_-4px_8px_#ffffff]');
+                        btnElement.classList.remove('shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff]', 'text-emerald-600');
+                    }, 2000);
+                }
+
+            } catch (err) {
+                showMessage(`Gagal menyalin data ${type}.`, 'error', 'ph-x-circle');
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function showMessage(text, type, iconClass) {
+            let icon = iconClass ? `<i class="ph-bold ${iconClass} text-xl"></i>` : '';
+            messageBox.innerHTML = `${icon} <span>${text}</span>`;
+            
+            messageBox.className = 'mt-6 p-4 rounded-xl text-sm font-bold flex items-center gap-3 bg-[#e0e5ec] transition-all duration-300';
+            
+            if (type === 'error') {
+                messageBox.classList.add('text-red-500', 'shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff]');
+            } else if (type === 'warning') {
+                messageBox.classList.add('text-amber-500', 'shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff]');
+            } else {
+                messageBox.classList.add('text-slate-600', 'shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff]');
+            }
+            messageBox.classList.remove('hidden');
+        }
+
+        function hideMessage() {
+            messageBox.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
