@@ -68,7 +68,10 @@
             <h1 class="text-5xl md:text-6xl font-extrabold text-slate-500 tracking-tight uppercase drop-shadow-[2px_4px_6px_rgba(163,177,198,0.5)]">
                 SMART HT & DM
             </h1>
-            <div class="w-32 h-1.5 bg-[#e0e5ec] mx-auto rounded-full mt-6 shadow-[inset_2px_2px_4px_#a3b1c6,inset_-2px_-2px_4px_#ffffff]"></div>
+            <!-- Garis diubah menjadi Progress Bar -->
+            <div class="w-48 h-2 bg-[#e0e5ec] mx-auto rounded-full mt-6 shadow-[inset_2px_2px_4px_#a3b1c6,inset_-2px_-2px_4px_#ffffff] relative overflow-hidden">
+                <div id="progress-bar" class="absolute top-0 left-0 h-full w-0 bg-emerald-500 rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(16,185,129,0.8)] z-10"></div>
+            </div>
         </header>
 
         <!-- Upload Zone -->
@@ -78,9 +81,9 @@
                 <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                 
                 <div class="space-y-8 pointer-events-none flex flex-col items-center relative z-20">
-                    <!-- Ikon melayang dengan efek timbul -->
-                    <div class="w-24 h-24 bg-[#e0e5ec] shadow-[8px_8px_16px_#a3b1c6,-8px_-8px_16px_#ffffff] rounded-full flex items-center justify-center group-hover:scale-105 transition-transform duration-500 text-slate-500">
-                        <i class="ph ph-cloud-arrow-up text-5xl"></i>
+                    <!-- Ikon melayang dengan ID untuk animasi -->
+                    <div id="icon-container" class="w-24 h-24 bg-[#e0e5ec] shadow-[8px_8px_16px_#a3b1c6,-8px_-8px_16px_#ffffff] rounded-full flex items-center justify-center group-hover:scale-105 transition-all duration-500 text-slate-500">
+                        <i id="upload-icon" class="ph ph-cloud-arrow-up text-5xl transition-all duration-300"></i>
                     </div>
                     
                     <!-- Tombol Timbul (Convex) yang menjadi Cekung (Concave) saat di-hover/aktif -->
@@ -289,39 +292,91 @@
             resultsSection.classList.add('hidden');
             hideMessage();
             globalProcessedData = { DM: { rows: [], columns: [] }, HT: { rows: [], columns: [] } };
+            
+            // Kembalikan Animasi Progres dan Ikon ke Semula
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.width = '0%';
+            progressBar.classList.replace('bg-red-500', 'bg-emerald-500');
+            
+            const uploadIcon = document.getElementById('upload-icon');
+            const iconContainer = document.getElementById('icon-container');
+            uploadIcon.className = 'ph ph-cloud-arrow-up text-5xl transition-all duration-300';
+            iconContainer.classList.remove('text-emerald-500', 'text-red-500');
+            iconContainer.classList.add('text-slate-500');
         });
 
         function processFile(file) {
             hideMessage();
             resultsSection.classList.add('hidden');
             
+            const progressBar = document.getElementById('progress-bar');
+            const uploadIcon = document.getElementById('upload-icon');
+            const iconContainer = document.getElementById('icon-container');
+            
+            // Memulai Animasi Loading
+            progressBar.style.width = '40%';
+            progressBar.classList.remove('bg-red-500');
+            progressBar.classList.add('bg-emerald-500');
+            
+            uploadIcon.className = 'ph ph-spinner-gap text-5xl animate-spin transition-all duration-300';
+            iconContainer.classList.remove('text-slate-500', 'text-red-500');
+            iconContainer.classList.add('text-emerald-500');
+            
             const reader = new FileReader();
             
             reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
-                    
-                    if (jsonData.length < 10) {
-                        throw new Error("File terlalu pendek. Aplikasi membutuhkan data minimal sampai baris 10.");
-                    }
+                // Menunda proses sejenak agar animasi loading terlihat elegan
+                progressBar.style.width = '70%';
+                
+                setTimeout(() => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
+                        
+                        if (jsonData.length < 10) {
+                            throw new Error("File terlalu pendek. Aplikasi membutuhkan data minimal sampai baris 10.");
+                        }
 
-                    extractData(jsonData);
-                    fileNameDisplay.textContent = file.name;
-                    resultsSection.classList.remove('hidden');
-                    
-                } catch (error) {
-                    console.error(error);
-                    showMessage(`Gagal memproses file: ${error.message}`, 'error', 'ph-warning');
-                }
+                        extractData(jsonData);
+                        fileNameDisplay.textContent = file.name;
+                        
+                        // Sukses! Garis hijau penuh 100% dan ganti ikon centang
+                        progressBar.style.width = '100%';
+                        uploadIcon.className = 'ph-fill ph-check-circle text-5xl transition-all duration-300';
+                        
+                        setTimeout(() => {
+                            resultsSection.classList.remove('hidden');
+                            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 500); 
+                        
+                    } catch (error) {
+                        console.error(error);
+                        // Gagal! Garis menjadi merah muda
+                        progressBar.style.width = '100%';
+                        progressBar.classList.replace('bg-emerald-500', 'bg-red-500');
+                        uploadIcon.className = 'ph-fill ph-warning text-5xl transition-all duration-300';
+                        iconContainer.classList.replace('text-emerald-500', 'text-red-500');
+                        
+                        showMessage(`Gagal memproses file: ${error.message}`, 'error', 'ph-warning');
+                    }
+                }, 600); // 600 milidetik jeda untuk pamer animasi
             };
             
             reader.onerror = function() {
+                const progressBar = document.getElementById('progress-bar');
+                const uploadIcon = document.getElementById('upload-icon');
+                const iconContainer = document.getElementById('icon-container');
+                
+                progressBar.style.width = '100%';
+                progressBar.classList.replace('bg-emerald-500', 'bg-red-500');
+                uploadIcon.className = 'ph-fill ph-warning text-5xl transition-all duration-300';
+                iconContainer.classList.replace('text-emerald-500', 'text-red-500');
+                
                 showMessage("Terjadi kesalahan saat membaca file.", 'error', 'ph-warning');
             };
             
